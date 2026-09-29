@@ -18,6 +18,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+//-
+import org.springframework.dao.DataIntegrityViolationException;
+//-
 
 import java.time.LocalDate;
 import java.util.List;
@@ -48,7 +51,7 @@ class UrlServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new UrlService(repository, generator, validator, new UrlMapper(), userService);
+        service = new UrlService(repository, generator, validator, new UrlMapper("http://localhost:8080"), userService);
     }
 
     @Test
@@ -61,9 +64,38 @@ class UrlServiceTest {
 
         UrlResponse result = service.createShortUrl("https://google.com", "Denys");
 
-        assertEquals("abc123", result.getNewUrl());
+        assertEquals("http://localhost:8080/api/v1/urls/abc123", result.getNewUrl());
         assertEquals("https://google.com", result.getOriginalUrl());
         assertEquals("Denys", result.getCreatorName());
+    }
+
+    @Test
+    void shouldRetryCreateWhenSaveViolatesUniqueConstraint() {
+        when(validator.isUrlValid("https://google.com")).thenReturn(true);
+        when(userService.loadUserByUsername("Denys")).thenReturn(creator);
+        when(generator.generateUrl()).thenReturn("first111", "second00");
+        when(repository.existsByNewUrl(anyString())).thenReturn(false);
+        when(repository.save(any(Url.class)))
+                .thenThrow(new DataIntegrityViolationException("duplicate"))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        UrlResponse result = service.createShortUrl("https://google.com", "Denys");
+
+        assertEquals("http://localhost:8080/api/v1/urls/second00", result.getNewUrl());
+        verify(repository, times(2)).save(any(Url.class));
+    }
+
+    @Test
+    void shouldThrowWhenSaveKeepsViolatingUniqueConstraint() {
+        when(validator.isUrlValid("https://google.com")).thenReturn(true);
+        when(userService.loadUserByUsername("Denys")).thenReturn(creator);
+        when(generator.generateUrl()).thenReturn("taken123");
+        when(repository.existsByNewUrl(anyString())).thenReturn(false);
+        when(repository.save(any(Url.class))).thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertThrows(ShortUrlGenerationException.class,
+                () -> service.createShortUrl("https://google.com", "Denys"));
+        verify(repository, times(5)).save(any(Url.class));
     }
 
     @Test
@@ -77,7 +109,7 @@ class UrlServiceTest {
 
         UrlResponse result = service.createShortUrl("https://google.com", "Denys");
 
-        assertEquals("second00", result.getNewUrl());
+        assertEquals("http://localhost:8080/api/v1/urls/second00", result.getNewUrl());
         verify(generator, times(2)).generateUrl();
     }
 
@@ -173,7 +205,7 @@ class UrlServiceTest {
         List<UrlResponse> result = service.findAllUrlByCreatorName("Denys");
 
         assertEquals(1, result.size());
-        assertEquals("abc123", result.getFirst().getNewUrl());
+        assertEquals("http://localhost:8080/api/v1/urls/abc123", result.getFirst().getNewUrl());
     }
 
     @Test
@@ -184,7 +216,7 @@ class UrlServiceTest {
         List<UrlResponse> result = service.findAllActiveUrlByCreatorName("Denys");
 
         assertEquals(1, result.size());
-        assertEquals("abc123", result.getFirst().getNewUrl());
+        assertEquals("http://localhost:8080/api/v1/urls/abc123", result.getFirst().getNewUrl());
     }
 
     @Test
@@ -239,9 +271,49 @@ class UrlServiceTest {
 
         UrlResponse result = service.regenerateShortUrl("abc123", "Denys");
 
-        assertEquals("newurl99", result.getNewUrl());
+        assertEquals("http://localhost:8080/api/v1/urls/newurl99", result.getNewUrl());
         assertEquals(createdAt, result.getCreatedAt());
+        assertEquals(createdAt.plusDays(40), result.getExpiredIn());
+
         verify(repository).save(stored);
+    }
+
+    @Test
+    void shouldExtendExpirationByTwentyDaysOnRegenerate() {
+        LocalDate createdAt = LocalDate.of(2026, 1, 1);
+        LocalDate expiredIn = LocalDate.of(2026, 1, 21);
+        Url stored = new Url(1L, "https://google.com", "abc123", creator,
+                createdAt, expiredIn, 4L);
+
+        when(repository.findByShortUrlAndCreatorName("abc123", "Denys"))
+                .thenReturn(Optional.of(stored));
+        when(generator.generateUrl()).thenReturn("newurl99");
+        when(repository.existsByNewUrl("newurl99")).thenReturn(false);
+        when(repository.save(stored)).thenReturn(stored);
+
+        UrlResponse result = service.regenerateShortUrl("abc123", "Denys");
+
+        assertEquals("http://localhost:8080/api/v1/urls/newurl99", result.getNewUrl());
+        assertEquals(expiredIn.plusDays(20), result.getExpiredIn());
+    }
+
+    @Test
+    void shouldRetryRegenerateWhenSaveViolatesUniqueConstraint() {
+        Url stored = new Url(1L, "https://google.com", "abc123", creator,
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 21), 4L);
+
+        when(repository.findByShortUrlAndCreatorName("abc123", "Denys"))
+                .thenReturn(Optional.of(stored));
+        when(generator.generateUrl()).thenReturn("first111", "second00");
+        when(repository.existsByNewUrl(anyString())).thenReturn(false);
+        when(repository.save(stored))
+                .thenThrow(new DataIntegrityViolationException("duplicate"))
+                .thenReturn(stored);
+
+        UrlResponse result = service.regenerateShortUrl("abc123", "Denys");
+
+        assertEquals("http://localhost:8080/api/v1/urls/second00", result.getNewUrl());
+        verify(repository, times(2)).save(stored);
     }
 
     @Test
@@ -258,3 +330,4 @@ class UrlServiceTest {
         assertTrue(service.existsByShortUrl("abc123"));
     }
 }
+

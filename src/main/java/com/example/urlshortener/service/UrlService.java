@@ -12,6 +12,7 @@ import com.example.urlshortener.mapper.UrlMapper;
 import com.example.urlshortener.repository.UrlRepository;
 import com.example.urlshortener.util.ShortUrlGenerator;
 import com.example.urlshortener.util.UrlValidator;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,10 +48,17 @@ public class UrlService {
         }
 
         User creator = userService.loadUserByUsername(username);
-        Url url = new Url(originalUrl, generateUniqueShortUrl(), creator);
-        return mapper.urlToResponse(save(url));
+        for (int attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+            try {
+                return mapper.urlToResponse(save(new Url(originalUrl, generateUniqueShortUrl(), creator)));
+            } catch (DataIntegrityViolationException e) {
+                // UNIQUE new_url, повторюємо генерацію
+            }
+        }
+        throw new ShortUrlGenerationException();
     }
 
+    @Transactional
     public String resolveOriginalUrl(String shortUrl){
         Url url = findActiveByShortUrl(shortUrl);
         incrementTransitionCount(shortUrl);
@@ -102,15 +110,26 @@ public class UrlService {
         repository.delete(deletedUrl);
     }
 
-    public UrlResponse regenerateShortUrl(String shortUrl, String username){
-        if(shortUrl == null || username == null){
+    public UrlResponse regenerateShortUrl(String shortUrl, String username) {
+        if (shortUrl == null || username == null) {
             throw new BlankArgumentException();
         }
 
         Url toUpdateUrl = findByShortUrlAndCreatorName(shortUrl, username);
-        toUpdateUrl.setNewUrl(generateUniqueShortUrl());
+        LocalDate currentExpiry = toUpdateUrl.getExpiredIn() != null
+                ? toUpdateUrl.getExpiredIn()
+                : LocalDate.now();
+        toUpdateUrl.setExpiredIn(currentExpiry.plusDays(20));
 
-        return mapper.urlToResponse(repository.save(toUpdateUrl));
+        for (int attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+            toUpdateUrl.setNewUrl(generateUniqueShortUrl());
+            try {
+                return mapper.urlToResponse(repository.save(toUpdateUrl));
+            } catch (DataIntegrityViolationException e) {
+                // UNIQUE new_url, повторюємо генерацію
+            }
+        }
+        throw new ShortUrlGenerationException();
     }
 
     String generateUniqueShortUrl(){
@@ -123,7 +142,6 @@ public class UrlService {
         throw new ShortUrlGenerationException();
     }
 
-    @Transactional
     public void incrementTransitionCount(String shortUrl){
         repository.incrementTransitionCount(shortUrl);
     }

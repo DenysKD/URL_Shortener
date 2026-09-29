@@ -53,11 +53,6 @@ public class GlobalExceptionHandler {
         return getErrorsMap(e, HttpStatus.CONFLICT);
     }
 
-    @ExceptionHandler(value = UserNotFoundException.class)
-    public ResponseEntity<Map<String, List<String>>> userNotFoundException(UserNotFoundException e){
-        return getErrorsMap(e, HttpStatus.NOT_FOUND);
-    }
-
     @ExceptionHandler(value = {BadCredentialsException.class, AuthenticationException.class})
     public ResponseEntity<Map<String, List<String>>> authenticationException(AuthenticationException e){
         Map<String, List<String>> errors = new HashMap<>();

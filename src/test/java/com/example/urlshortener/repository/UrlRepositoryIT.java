@@ -10,6 +10,7 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -108,9 +109,10 @@ class UrlRepositoryIT {
         urlRepository.save(new Url("https://google.com", "active01", creator));
 
         entityManager.getEntityManager().createNativeQuery(
-                        "INSERT INTO URL (original_url, new_url, created_at, creator_id, transition_count) " +
-                                "VALUES ('https://example.com', 'expired1', :createdAt, :creatorId, 0)")
+                        "INSERT INTO URL (original_url, new_url, created_at, expired_in, creator_id, transition_count) " +
+                                "VALUES ('https://example.com', 'expired1', :createdAt, :expiredIn, :creatorId, 0)")
                 .setParameter("createdAt", LocalDate.now().minusDays(30))
+                .setParameter("expiredIn", LocalDate.now().minusDays(10))
                 .setParameter("creatorId", creator.getId())
                 .executeUpdate();
         entityManager.flush();
@@ -125,10 +127,33 @@ class UrlRepositoryIT {
     @Test
     void shouldEnforceUniqueShortUrl() {
         User creator = createUser("Denys");
+        urlRepository.saveAndFlush(new Url("https://google.com", "dup12345", creator));
+
+        assertThrows(DataIntegrityViolationException.class,
+                () -> urlRepository.saveAndFlush(new Url("https://example.com", "dup12345", creator)));
+    }
+
+    @Test
+    void shouldCheckExistsByNewUrl() {
+        User creator = createUser("Denys");
         urlRepository.save(new Url("https://google.com", "dup12345", creator));
 
         assertTrue(urlRepository.existsByNewUrl("dup12345"));
         assertFalse(urlRepository.existsByNewUrl("free12345"));
+    }
+
+    @Test
+    void shouldPersistChangedExpiredIn() {
+        User creator = createUser("Denys");
+        Url saved = urlRepository.save(new Url("https://google.com", "abc123", creator));
+        LocalDate newExpiredIn = LocalDate.now().plusDays(90);
+
+        saved.setExpiredIn(newExpiredIn);
+        urlRepository.saveAndFlush(saved);
+        entityManager.clear();
+
+        Url reloaded = urlRepository.findById(saved.getId()).orElseThrow();
+        assertEquals(newExpiredIn, reloaded.getExpiredIn());
     }
 
     @Test

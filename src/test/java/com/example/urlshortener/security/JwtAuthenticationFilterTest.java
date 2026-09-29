@@ -2,7 +2,9 @@ package com.example.urlshortener.security;
 
 import com.example.urlshortener.entity.Role;
 import com.example.urlshortener.entity.User;
+import com.example.urlshortener.exception.UserNotFoundException;
 import com.example.urlshortener.service.UserService;
+import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +65,36 @@ class JwtAuthenticationFilterTest {
 
         assertNotNull(SecurityContextHolder.getContext().getAuthentication());
         assertEquals("Denys", SecurityContextHolder.getContext().getAuthentication().getName());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void shouldContinueWithoutAuthenticationWhenTokenIsInvalid() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer bad-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.extractUserName("bad-token")).thenThrow(new MalformedJwtException("bad"));
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        verify(filterChain).doFilter(request, response);
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    void shouldContinueWithoutAuthenticationWhenUserFromTokenNoLongerExists() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer jwt-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(jwtService.extractUserName("jwt-token")).thenReturn("Ghost");
+        when(userService.loadUserByUsername("Ghost")).thenThrow(new UserNotFoundException());
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
         verify(filterChain).doFilter(request, response);
     }
 }

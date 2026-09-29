@@ -14,7 +14,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,9 +27,6 @@ class AuthenticationServiceTest {
 
     @Mock
     private UserService userService;
-
-    @Mock
-    private PasswordEncoder passwordEncoder;
 
     @Mock
     private JwtService jwtService;

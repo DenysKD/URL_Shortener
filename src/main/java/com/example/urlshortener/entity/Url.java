@@ -28,7 +28,7 @@ public class Url {
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;
 
-    @Column(name = "expired_in", insertable = false, updatable = false)
+    @Column(name = "expired_in", insertable = false)
     @Generated(event = EventType.INSERT)
     private LocalDate expiredIn;
 
@@ -53,6 +53,10 @@ public class Url {
         this.createdAt = createdAt;
         this.expiredIn = expiredIn;
         this.transitionCount = transitionCount;
+    }
+
+    public void setExpiredIn(LocalDate expiredIn) {
+        this.expiredIn = expiredIn;
     }
 
     public Long getTransitionCount() {

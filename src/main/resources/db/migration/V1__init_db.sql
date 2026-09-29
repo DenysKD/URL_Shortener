@@ -11,7 +11,7 @@ original_url varchar NOT NULL,
 new_url varchar NOT NULL UNIQUE,
 created_at DATE DEFAULT CURRENT_DATE NOT NULL,
 creator_id bigint NOT NULL,
-expired_in DATE GENERATED ALWAYS AS (created_at + 20) STORED,
+expired_in DATE DEFAULT (CURRENT_DATE + 20) NOT NULL,
 transition_count bigint DEFAULT 0 NOT NULL
 );
 

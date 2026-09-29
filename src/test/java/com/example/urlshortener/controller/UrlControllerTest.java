@@ -50,7 +50,7 @@ class UrlControllerTest {
         InputOriginalUrlDto input = new InputOriginalUrlDto();
         input.setUrl("https://google.com");
 
-        UrlResponse response = new UrlResponse(1L, "https://google.com", "abc123", "Denys",
+        UrlResponse response = new UrlResponse(1L, "https://google.com", "http://localhost:8080/api/v1/urls/abc123", "Denys",
                 LocalDate.now(), LocalDate.now().plusDays(20), 0L);
 
         when(service.createShortUrl("https://google.com", "Denys")).thenReturn(response);
@@ -60,13 +60,13 @@ class UrlControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(input)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.newUrl").value("abc123"))
+                .andExpect(jsonPath("$.newUrl").value("http://localhost:8080/api/v1/urls/abc123"))
                 .andExpect(jsonPath("$.originalUrl").value("https://google.com"));
     }
 
     @Test
     void shouldReturnAllUrlsForCurrentUser() throws Exception {
-        UrlResponse dto = new UrlResponse(1L, "https://google.com", "abc123", "Denys",
+        UrlResponse dto = new UrlResponse(1L, "https://google.com", "http://localhost:8080/api/v1/urls/abc123", "Denys",
                 LocalDate.now(), LocalDate.now().plusDays(20), 0L);
 
         when(service.findAllUrlByCreatorName("Denys")).thenReturn(List.of(dto));
@@ -74,12 +74,12 @@ class UrlControllerTest {
         mockMvc.perform(get("/api/v1/urls")
                         .principal(authenticatedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].newUrl").value("abc123"));
+                .andExpect(jsonPath("$[0].newUrl").value("http://localhost:8080/api/v1/urls/abc123"));
     }
 
     @Test
     void shouldReturnOnlyActiveUrlsForCurrentUser() throws Exception {
-        UrlResponse dto = new UrlResponse(1L, "https://google.com", "abc123", "Denys",
+        UrlResponse dto = new UrlResponse(1L, "https://google.com", "http://localhost:8080/api/v1/urls/abc123", "Denys",
                 LocalDate.now(), LocalDate.now().plusDays(20), 0L);
 
         when(service.findAllActiveUrlByCreatorName("Denys")).thenReturn(List.of(dto));
@@ -87,7 +87,7 @@ class UrlControllerTest {
         mockMvc.perform(get("/api/v1/urls/active")
                         .principal(authenticatedUser()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].newUrl").value("abc123"));
+                .andExpect(jsonPath("$[0].newUrl").value("http://localhost:8080/api/v1/urls/abc123"));
     }
 
     @Test
@@ -113,7 +113,8 @@ class UrlControllerTest {
     @Test
     void shouldUpdateUrl() throws Exception {
         String body = "{\"url\":\"abc123\"}";
-        UrlResponse response = new UrlResponse(1L, "https://google.com", "newurl99", "Denys",
+
+        UrlResponse response = new UrlResponse(1L, "https://google.com", "http://localhost:8080/api/v1/urls/newurl99", "Denys",
                 LocalDate.now(), LocalDate.now().plusDays(20), 0L);
 
         when(service.regenerateShortUrl("abc123", "Denys")).thenReturn(response);
@@ -123,6 +124,7 @@ class UrlControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.newUrl").value("newurl99"));
+                .andExpect(jsonPath("$.newUrl").value("http://localhost:8080/api/v1/urls/newurl99"));
     }
 }
+

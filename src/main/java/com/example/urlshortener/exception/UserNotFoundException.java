@@ -1,7 +1,11 @@
 package com.example.urlshortener.exception;
 
-public class UserNotFoundException extends RuntimeException {
-    private static final String USER_NOT_FOUND = "не вдалося знайти користувача!";
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
+public class UserNotFoundException extends UsernameNotFoundException {
+
+    private static final String USER_NOT_FOUND = "Не вдалося знайти користувача!";
+
     public UserNotFoundException(String message) {
         super(message);
     }

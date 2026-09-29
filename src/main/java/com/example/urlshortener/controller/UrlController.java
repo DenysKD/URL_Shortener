@@ -4,6 +4,7 @@ import com.example.urlshortener.dto.InputOriginalUrlDto;
 import com.example.urlshortener.dto.InputShortUrlDto;
 import com.example.urlshortener.dto.UrlResponse;
 import com.example.urlshortener.service.UrlService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
@@ -26,34 +27,40 @@ public class UrlController {
     }
 
     @PostMapping
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<UrlResponse> createShortUrl(Authentication authentication, @Valid @RequestBody InputOriginalUrlDto input){
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(service.createShortUrl(input.getUrl(), authentication.getName()));
     }
 
     @DeleteMapping
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<Void> deleteUrl(Authentication authentication, @Valid @RequestBody InputShortUrlDto input){
         service.deleteByShortUrl(input.getUrl(), authentication.getName());
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<UrlResponse> updateUrl(Authentication authentication, @Valid @RequestBody InputShortUrlDto input){
         return ResponseEntity.accepted()
                 .body(service.regenerateShortUrl(input.getUrl(), authentication.getName()));
     }
 
     @GetMapping
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<List<UrlResponse>> getAllUrls(Authentication authentication){
         return ResponseEntity.ok(service.findAllUrlByCreatorName(authentication.getName()));
     }
 
     @GetMapping("/active")
+    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<List<UrlResponse>> getActiveUrls(Authentication authentication){
         return ResponseEntity.ok(service.findAllActiveUrlByCreatorName(authentication.getName()));
     }
 
     @GetMapping("/{shortUrl}")
+    @Operation(security = {})
     public ResponseEntity<Void> redirect(@PathVariable String shortUrl){
         String originalUrl = service.resolveOriginalUrl(shortUrl);
         return ResponseEntity.status(HttpStatus.FOUND)

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,7 @@ public interface UrlRepository extends JpaRepository<Url, Long> {
 
     boolean existsByNewUrl(String newUrl);
 
+    @Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Url u SET u.transitionCount = u.transitionCount + 1 WHERE u.newUrl = :shortUrl")
     void incrementTransitionCount(@Param("shortUrl") String shortUrl);

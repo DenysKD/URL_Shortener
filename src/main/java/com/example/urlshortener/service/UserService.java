@@ -5,6 +5,7 @@ import com.example.urlshortener.exception.UserAlreadyExistException;
 import com.example.urlshortener.exception.UserNotFoundException;
 import com.example.urlshortener.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,6 +43,10 @@ public class UserService implements UserDetailsService {
         String encodedPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(encodedPassword);
 
-        return repository.save(user);
+        try {
+            return repository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new UserAlreadyExistException();
+        }
     }
 }
